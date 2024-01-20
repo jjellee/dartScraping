@@ -17,7 +17,7 @@ def flatten_multiindex(index):
 
 def extract_strings_from_file(file_path):
     results = []
-    with open(file_path, 'r') as file:
+    with open(file_path, 'r', encoding='utf-8') as file:
         for line in file:
             # Splitting the line at the first occurrence of ':'
             parts = line.split(':', 1)
@@ -73,9 +73,10 @@ def createFirstVersionExcel(equityFolder) :
     #print(company_submitter_list[0][0])
 
     xlsxFile = equityFolder + '_v1' + '.xlsx'
-    with pd.ExcelWriter(os.path.join(equityFolder, xlsxFile), engine='openpyxl') as writer:
+    xlsxFilePath = os.path.join(equityFolder, xlsxFile)
+    with pd.ExcelWriter(xlsxFilePath, engine='openpyxl') as writer:
         idx = 0
-        start_row = 0  # Initialize the starting row
+        start_row = 1  # Initialize the starting row
         for file in sorted_files:
             if file.endswith('.html'):
                 print(f"Processing file: {file}")
@@ -88,9 +89,8 @@ def createFirstVersionExcel(equityFolder) :
                 idx = idx + 1
 
     # 엑셀 파일을 다시 열고 첫 번째 열 삭제
-    excel_file = os.path.join(equityFolder, xlsxFile)
     app = xw.App(visible=False)  # 엑셀 애플리케이션을 보이지 않게 설정
-    book = app.books.open(excel_file)  # 엑셀 파일 열기
+    book = app.books.open(xlsxFilePath)  # 엑셀 파일 열기
 
     try:
         sheet = book.sheets[sheet_name]  # 워크시트 선택
@@ -99,11 +99,36 @@ def createFirstVersionExcel(equityFolder) :
     finally:
         book.close()  # 파일 닫기
         app.quit()  # 엑셀 애플리케이션 종료
+    return xlsxFilePath
+
+def calculateFirstVersionExcel(xlsxFilePath) :
+    # 엑셀 파일을 불러옵니다.
+    df = pd.read_excel(xlsxFilePath)
+
+    # 첫 번째 열을 순회하며 '회사명'이라는 단어를 찾습니다.
+    company_name_row = None
+    for index, value in enumerate(df.iloc[:, 0]):
+        if '회사명' in str(value):
+            company_name_row = index
+            #print(f"'회사명'은 {index + 1}번째 행에 있습니다.")
+
+            # '회사명'이 있는 행에서 3행 뒤부터 '증감'이라는 단어를 찾습니다.
+            row_index = company_name_row + 3
+            for col_index in range(len(df.columns)):
+                if '증감' in str(df.iloc[row_index, col_index]):
+                    print(f"'증감'은 {row_index + 1}행 {col_index + 1}열에 있습니다.")
+                    
+    # Case 1 : 성명 (명칭), 처분단가열 2개
+    
+    
+    # Case 2 : 보고사유, 처분단가열 1개
+
 
 def main () :
     equityFolder = '2024.01.18_지분공시'  # Update the folder path
-    createFirstVersionExcel(equityFolder)
-   
+    xlsxFilePath = createFirstVersionExcel(equityFolder)
+    #xlsxFilePath = 'E:/bbAutomation/dartScraping/2024.01.18_지분공시/2024.01.18_지분공시_v1.xlsx'
+    calculateFirstVersionExcel(xlsxFilePath)
 
 
 main()
