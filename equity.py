@@ -114,14 +114,22 @@ def calculateFirstVersionExcel(xlsxFilePath) :
 
             # '회사명'이 있는 행에서 3행 뒤부터 '증감'이라는 단어를 찾습니다.
             row_index = company_name_row + 3
+            if '보고사유' in df.iloc[row_index, 0] :
+                # Case 1
+                # 단순히 증감 * 처분 단가
+            elif '성명' in df.iloc[row_index, 0] :
+                #Case 2
+            else :
+
+            '''
             for col_index in range(len(df.columns)):
                 if '증감' in str(df.iloc[row_index, col_index]):
                     print(f"'증감'은 {row_index + 1}행 {col_index + 1}열에 있습니다.")
-                    
-    # Case 1 : 성명 (명칭), 처분단가열 2개
+            '''
+    # Case 1 : 보고사유, 처분단가열 1개
     
     
-    # Case 2 : 보고사유, 처분단가열 1개
+    # Case 2 : 성명 (명칭), 처분단가열 2개
 
 
 def main () :
