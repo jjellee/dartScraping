@@ -2,6 +2,7 @@
 import pandas as pd
 import xlwings as xw
 import os, sys
+import numpy as np
 
 secondTableColumn = 14
 
@@ -42,9 +43,6 @@ def convert_html_table_to_excel(company_submitter, html_file_path, excel_writer,
     # Assuming tables[0] is the DataFrame you want to write
     # Write the HTML table DataFrame to the Excel file
 
-    # tables[0]의 열의 수 구하기
-    column_length = tables[0].shape[1]
-
     # 작업 테이블
     tables[0].to_excel(excel_writer, sheet_name=sheet_name, startrow=start_row + 2, index=True)
     
@@ -67,7 +65,7 @@ def convert_html_table_to_excel(company_submitter, html_file_path, excel_writer,
 
     return start_row + len(tables[0]) + 7  # Return the new start row for the next table
 
-def createFirstVersionExcel(equityFolder) :
+def HTMLtoExcel(equityFolder) :
     files = os.listdir(equityFolder)
     filtered_files = [f for f in files if (f.endswith('.txt') or f.endswith('.html')) and is_number(os.path.splitext(f)[0])]
     sorted_files = sorted(filtered_files, key=lambda x: int(os.path.splitext(x)[0]))
@@ -82,6 +80,7 @@ def createFirstVersionExcel(equityFolder) :
             company_submitter_list.append((company, submitter))
     #print(company_submitter_list[0][0])
 
+    #end_row=0
     xlsxFile = equityFolder + '_v1' + '.xlsx'
     xlsxFilePath = os.path.join(equityFolder, xlsxFile)
     with pd.ExcelWriter(xlsxFilePath, engine='openpyxl') as writer:
@@ -97,8 +96,10 @@ def createFirstVersionExcel(equityFolder) :
                 #print('start_row:' + str(start_row))
                 start_row = convert_html_table_to_excel(company_submitter_list[idx], htmlFile, writer, sheet_name, start_row)
                 idx = idx + 1
-
+        #end_row = start_row - 4
     column_letter = number_to_alphabet(secondTableColumn)
+
+    #print(end_row)
 
     # 엑셀 파일을 다시 열고 첫 번째 열 삭제
     app = xw.App(visible=False)  # 엑셀 애플리케이션을 보이지 않게 설정
@@ -112,11 +113,91 @@ def createFirstVersionExcel(equityFolder) :
     finally:
         book.close()  # 파일 닫기
         app.quit()  # 엑셀 애플리케이션 종료
+
+    
     return xlsxFilePath
+
+def adjustnExcel(xlsxFilePath) : 
+    app = xw.App(visible=False)  # Excel 애플리케이션을 보이지 않게 설정
+    book = app.books.open(xlsxFilePath)  # Excel 파일 열기
+
+    try:
+        sheet = book.sheets[0]  # 첫 번째 시트 선택
+        last_row = sheet.range('A' + str(sheet.cells.last_cell.row)).end('up').row  # 첫 번째 열의 마지막 행 찾기
+        row_index = 1
+        print('last_row : ' + str(last_row))
+        while row_index <= last_row:
+            value = sheet.range(f'A{row_index}').value  # 각 행의 A열 값 읽기
+            if value == '회사명':
+                row_index += 1  # '회사명' 행 다음부터 검사 시작
+                while row_index <= last_row + 1:
+                    # 현재 행 전체가 비어있는지 확인
+                    row_values = sheet.range(f'{row_index}:{row_index}').value
+                    if all(cell is None for cell in row_values):
+                        #print(f'Row {row_index}')  # 비어 있는 행의 번호를 출력
+                        break
+                    row_index += 1
+                tableEndValue = sheet.range(f'A{row_index-1}').value  # 테이블 끝행의 A열 값 읽기
+                print('Row' + str(row_index-1) + ':' + tableEndValue)
+                if tableEndValue != '합 계':
+                    sheet.api.Rows(row_index).Insert()  # 새 행 삽입
+                    sheet.range(f'A{row_index}').value = '합 계'  # 새 행의 A열에 '합 계' 입력
+                    last_row += 1  # 행이 추가되었으므로 마지막 행 번호 업데이트
+            else:
+                row_index += 1
+
+    finally:
+        book.close()  # 파일 닫기
+        app.quit()  # Excel 애플리케이션 종료
+
+
+def main () :
+    equityFolder = '2024.01.18_지분공시'  # Update the folder path
+    xlsxFilePath = HTMLtoExcel(equityFolder)
+    #xlsxFilePath = 'E:/bbAutomation/dartScraping/2024.01.18_지분공시/2024.01.18_지분공시_v1.xlsx'
+    #xlsxFilePath = '/Users/yee/Documents/dartScraping/2024.01.18_지분공시/2024.01.18_지분공시_v1.xlsx'
+    adjustnExcel(xlsxFilePath)
+    #calculateFirstVersionExcel(xlsxFilePath)
+
+
+main()
+
+'''
+file_path=os.path.join(os.getcwd(), 'example.xlsx')
+# 파일이 존재하지 않으면 새 파일 생성
+if not os.path.exists(file_path):
+    wb = xw.Book()  # 새 워크북 생성
+    wb.save(file_path)  # 파일로 저장
+else:
+    wb = xw.Book(file_path)  # 기존 파일 열기
+
+sheet = wb.sheets['Sheet1']
+
+# 엑셀에 숫자를 세로로 쓰기
+numbers = [1, 2, 3, 4, 5]  # 예시 데이터
+sheet.range('A1').options(transpose=True).value = numbers
+
+# VBA의 SUM 함수를 사용하여 합 구하기
+sum_formula = f'=SUM(A1:A{len(numbers)})'
+sheet.range('B1').value = sum_formula
+
+# 계산된 합 가져오기
+total_sum = sheet.range('B1').value
+print("계산된 합:", total_sum)
+
+# 엑셀 파일 저장 및 닫기
+wb.save(file_path)
+wb.close()
 
 def calculateFirstVersionExcel(xlsxFilePath) :
     # 엑셀 파일을 불러옵니다.
     df = pd.read_excel(xlsxFilePath)
+
+    tables_info = []
+        tables_info.append({
+        'top_left_cell': (left_table_start_row, left_table_start_col_label),
+        'bottom_right_cell': (table_data_end_row - 1, df.columns[left_table_end_col]),
+    })
 
     # 첫 번째 열을 순회하며 '회사명'이라는 단어를 찾습니다.
     company_name_row = None
@@ -149,45 +230,82 @@ def calculateFirstVersionExcel(xlsxFilePath) :
             else :
                 print('알지 못하는 형식입니다')
                 sys.exit(0)
-            
-
-            
+'''
 
 
 
-def main () :
-    equityFolder = '2024.01.18_지분공시'  # Update the folder path
-    #xlsxFilePath = createFirstVersionExcel(equityFolder)
-    xlsxFilePath = 'E:/bbAutomation/dartScraping/2024.01.18_지분공시/2024.01.18_지분공시_v1.xlsx'
-    calculateFirstVersionExcel(xlsxFilePath)
 
 
-main()
+
+
+
+
 
 '''
-file_path=os.path.join(os.getcwd(), 'example.xlsx')
-# 파일이 존재하지 않으면 새 파일 생성
-if not os.path.exists(file_path):
-    wb = xw.Book()  # 새 워크북 생성
-    wb.save(file_path)  # 파일로 저장
-else:
-    wb = xw.Book(file_path)  # 기존 파일 열기
+def adjustnExcel(xlsxFilePath) : 
+    # 엑셀 파일을 불러옵니다.
+    df = pd.read_excel(xlsxFilePath)
 
-sheet = wb.sheets['Sheet1']
+    # Get the shape of the DataFrame
+    num_rows, num_cols = df.shape
+    print (num_rows, num_cols)
 
-# 엑셀에 숫자를 세로로 쓰기
-numbers = [1, 2, 3, 4, 5]  # 예시 데이터
-sheet.range('A1').options(transpose=True).value = numbers
+    # Create a list to store new rows
+    row_index = 0
+    while row_index < num_rows:
+        if df.iloc[row_index, 0] == '회사명':
+            #print('회사명 : ' + df.iloc[row_index, 1] + ' row_index : ' + str(row_index + 2))
+            while row_index < num_rows and not df.iloc[row_index].isnull().all():
+                row_index += 1
+            #print('isnuall all : ' + str(row_index + 2))
+            if row_index < num_rows and df.iloc[row_index - 1, 0] != '합 계':
+                # 새로운 행을 생성하고 첫 번째 열에 '합 계'를 추가합니다.
+                new_row = ['합 계'] + [np.nan] * (num_cols - 1)
+                # DataFrame에 새로운 행을 삽입합니다.
+                #df = pd.concat([df.iloc[:row_index], pd.DataFrame([new_row], columns=df.columns), df.iloc[row_index:]]).reset_index(drop=True)
+                df = pd.concat([df.iloc[:row_index], pd.DataFrame([new_row], columns=df.columns), df.iloc[row_index:]], ignore_index=True)
+                print('new_row inserted at index: ' + str(row_index + 2))
+                # 행을 추가했으므로 num_rows 업데이트
+                num_rows += 1
+                #print (num_rows, num_cols)
+        row_index += 1
 
-# VBA의 SUM 함수를 사용하여 합 구하기
-sum_formula = f'=SUM(A1:A{len(numbers)})'
-sheet.range('B1').value = sum_formula
+    # Save the modified DataFrame to a new Excel file
+    secondxlsxFilePath = os.path.join(equityFolder, secondxlsxFile)
+    df.to_excel(secondxlsxFilePath, index=False)
 
-# 계산된 합 가져오기
-total_sum = sheet.range('B1').value
-print("계산된 합:", total_sum)
+    if is_row_empty == True :
+        print(f"Row {row_index+2} is empty: {is_row_empty}")
 
-# 엑셀 파일 저장 및 닫기
-wb.save(file_path)
-wb.close()
+    # 첫 번째 열을 순회하며 '회사명'이라는 단어를 찾습니다.
+    company_name_row = None
+    for index, value in enumerate(df.iloc[:, 0]):
+        if '회사명' in str(value):
+            company_name_row = index
+            #print(f"'회사명'은 {index + 1}번째 행에 있습니다.")
+            
+            # '회사명'이 있는 행에서 3행 뒤부터 '증감'이라는 단어를 찾습니다.
+            row_index = company_name_row + 3
+            if '보고사유' in df.iloc[row_index, 0] :
+                # Case 1
+                # 단순히 증감 * 처분 단가로 평균단가 구하기
+                for col_index in range(len(df.columns)):
+                    if '증감' in str(df.iloc[row_index, col_index]):
+                        deltaRow = row_index
+                        deltaCol = col_index
+                        print(f"'증감'은 {row_index + 2}행 " + number_to_alphabet(col_index + 1) + "열에 있습니다.")
+                        break
+                # '증감'의 '합계'가 존재하지 않을 경우
+                
+
+            elif '성명' in df.iloc[row_index, 0] :
+                # Case 2
+                # 처분 단가 2열 중 숫자인 것만, 0은 숫자X, 혼잡(숫자+문자)인 경우 숫자만 가져오기
+                for col_index in range(len(df.columns)):
+                    if '증감' in str(df.iloc[row_index, col_index]):
+                        print(f"'증감'은 {row_index + 2}행 " + number_to_alphabet(col_index + 1) + "열에 있습니다.")
+                        break
+            else :
+                print('알지 못하는 형식입니다')
+                sys.exit(0)
 '''
