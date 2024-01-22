@@ -1,7 +1,13 @@
 
 import pandas as pd
 import xlwings as xw
-import os
+import os, sys
+
+secondTableColumn = 14
+
+def number_to_alphabet(number):
+    # 숫자를 알파벳으로 변환 (1 -> 'A', 2 -> 'B', ...)
+    return chr(64 + number)
 
 # 파일명이 숫자인지 확인하는 함수
 def is_number(s):
@@ -10,10 +16,6 @@ def is_number(s):
         return True
     except ValueError:
         return False
-
-def flatten_multiindex(index):
-    """Flatten a MultiIndex to a single-level Index by concatenating level values."""
-    return ['_'.join(map(str, entry)) if isinstance(entry, tuple) else entry for entry in index]
 
 def extract_strings_from_file(file_path):
     results = []
@@ -39,8 +41,16 @@ def convert_html_table_to_excel(company_submitter, html_file_path, excel_writer,
     
     # Assuming tables[0] is the DataFrame you want to write
     # Write the HTML table DataFrame to the Excel file
+
+    # tables[0]의 열의 수 구하기
+    column_length = tables[0].shape[1]
+
+    # 작업 테이블
     tables[0].to_excel(excel_writer, sheet_name=sheet_name, startrow=start_row + 2, index=True)
     
+    # 원본 테이블 
+    tables[0].to_excel(excel_writer, sheet_name=sheet_name, startrow=start_row + 2, startcol=secondTableColumn, index=True)
+
     # Get the workbook and the sheet
     workbook  = excel_writer.book
     worksheet = excel_writer.sheets[sheet_name]
@@ -88,13 +98,16 @@ def createFirstVersionExcel(equityFolder) :
                 start_row = convert_html_table_to_excel(company_submitter_list[idx], htmlFile, writer, sheet_name, start_row)
                 idx = idx + 1
 
+    column_letter = number_to_alphabet(secondTableColumn)
+
     # 엑셀 파일을 다시 열고 첫 번째 열 삭제
     app = xw.App(visible=False)  # 엑셀 애플리케이션을 보이지 않게 설정
     book = app.books.open(xlsxFilePath)  # 엑셀 파일 열기
-
+    
     try:
         sheet = book.sheets[sheet_name]  # 워크시트 선택
         sheet.range('A:A').delete()  # 첫 번째 열 삭제
+        sheet.range(f'{column_letter}:{column_letter}').delete()  # 지정된 열 삭제
         book.save()  # 변경 사항 저장
     finally:
         book.close()  # 파일 닫기
@@ -111,31 +124,41 @@ def calculateFirstVersionExcel(xlsxFilePath) :
         if '회사명' in str(value):
             company_name_row = index
             #print(f"'회사명'은 {index + 1}번째 행에 있습니다.")
-
+            
             # '회사명'이 있는 행에서 3행 뒤부터 '증감'이라는 단어를 찾습니다.
             row_index = company_name_row + 3
             if '보고사유' in df.iloc[row_index, 0] :
                 # Case 1
-                # 단순히 증감 * 처분 단가
-            elif '성명' in df.iloc[row_index, 0] :
-                #Case 2
-            else :
+                # 단순히 증감 * 처분 단가로 평균단가 구하기
+                for col_index in range(len(df.columns)):
+                    if '증감' in str(df.iloc[row_index, col_index]):
+                        deltaRow = row_index
+                        deltaCol = col_index
+                        print(f"'증감'은 {row_index + 2}행 " + number_to_alphabet(col_index + 1) + "열에 있습니다.")
+                        break
+                # '증감'의 '합계'가 존재하지 않을 경우
+                
 
-            '''
-            for col_index in range(len(df.columns)):
-                if '증감' in str(df.iloc[row_index, col_index]):
-                    print(f"'증감'은 {row_index + 1}행 {col_index + 1}열에 있습니다.")
-            '''
-    # Case 1 : 보고사유, 처분단가열 1개
-    
-    
-    # Case 2 : 성명 (명칭), 처분단가열 2개
+            elif '성명' in df.iloc[row_index, 0] :
+                # Case 2
+                # 처분 단가 2열 중 숫자인 것만, 0은 숫자X, 혼잡(숫자+문자)인 경우 숫자만 가져오기
+                for col_index in range(len(df.columns)):
+                    if '증감' in str(df.iloc[row_index, col_index]):
+                        print(f"'증감'은 {row_index + 2}행 " + number_to_alphabet(col_index + 1) + "열에 있습니다.")
+                        break
+            else :
+                print('알지 못하는 형식입니다')
+                sys.exit(0)
+            
+
+            
+
 
 
 def main () :
     equityFolder = '2024.01.18_지분공시'  # Update the folder path
-    xlsxFilePath = createFirstVersionExcel(equityFolder)
-    #xlsxFilePath = 'E:/bbAutomation/dartScraping/2024.01.18_지분공시/2024.01.18_지분공시_v1.xlsx'
+    #xlsxFilePath = createFirstVersionExcel(equityFolder)
+    xlsxFilePath = 'E:/bbAutomation/dartScraping/2024.01.18_지분공시/2024.01.18_지분공시_v1.xlsx'
     calculateFirstVersionExcel(xlsxFilePath)
 
 
