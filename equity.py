@@ -3,8 +3,9 @@ import pandas as pd
 import xlwings as xw
 import os, sys
 import numpy as np
+import re
 
-secondTableColumn = 14
+secondTableColumn = 15
 
 def number_to_alphabet(number):
     # 숫자를 알파벳으로 변환 (1 -> 'A', 2 -> 'B', ...)
@@ -114,198 +115,171 @@ def HTMLtoExcel(equityFolder) :
         book.close()  # 파일 닫기
         app.quit()  # 엑셀 애플리케이션 종료
 
-    
     return xlsxFilePath
 
-def adjustnExcel(xlsxFilePath) : 
+def tableForm(sheet, indexRow) :
+    case = None
+    deltaCol = None
+    priceCol = None
+    remarksCol = None
+    sumRow = None
+    col = 1  # Start from the first colum
+    while True :
+        cell_value = sheet.range((indexRow, col)).value
+        if col == 1:
+            if '성명' in cell_value : #취득/처분 단가 2개 열
+                case = 2
+            elif cell_value == '보고사유' : #취득/처분 단가 1개 열
+                case = 1
+            else :
+                print('새로운 폼! 처리 필요')
+        if cell_value == '비 고' :
+            remarksCol = col
+            break
+        elif cell_value == '증감' :
+            deltaCol = col
+        elif '취득/처분 단가' in cell_value :
+            priceCol = col
+        col += 1
+
+    #'합 계' row 구하기    
+    row = indexRow
+    while True :
+        value = sheet.range(f'A{row}').value
+        if value == '합 계' :
+            sumRow = row
+            break
+        row += 1
+    return case, deltaCol, priceCol, remarksCol, sumRow
+
+def addAveragePriceColumn(sheet, row) : 
+    col = 1  # Start from the first colum
+    while True :
+        cell_value = sheet.range((row, col)).value
+        if cell_value == '비 고' :
+            target_cell = sheet.range(row, col + 1)
+            target_cell.value = '증감X취득/처분 단가'
+
+            # Apply bold formatting
+            target_cell.api.Font.Bold = True
+
+            # Add borders to the cell
+            for border_id in range(7, 13):  # These are the border index values for Excel
+                target_cell.api.Borders(border_id).LineStyle = 1  # Solid line
+            break
+        col += 1
+
+def adjustExcel(xlsxFilePath) : 
     app = xw.App(visible=False)  # Excel 애플리케이션을 보이지 않게 설정
     book = app.books.open(xlsxFilePath)  # Excel 파일 열기
 
     try:
+        # '합 계' 행 추가 + '증감X취득/처분 단가' 열 추가
         sheet = book.sheets[0]  # 첫 번째 시트 선택
         last_row = sheet.range('A' + str(sheet.cells.last_cell.row)).end('up').row  # 첫 번째 열의 마지막 행 찾기
-        row_index = 1
+        row = 1
         print('last_row : ' + str(last_row))
-        while row_index <= last_row:
-            value = sheet.range(f'A{row_index}').value  # 각 행의 A열 값 읽기
+        while row <= last_row :
+            value = sheet.range(f'A{row}').value  # 각 행의 A열 값 읽기
             if value == '회사명':
-                row_index += 1  # '회사명' 행 다음부터 검사 시작
-                while row_index <= last_row + 1:
+                addAveragePriceColumn(sheet, row+3)   
+                row += 1  # '회사명' 행 다음부터 검사 시작
+                while row <= last_row + 1:
                     # 현재 행 전체가 비어있는지 확인
-                    row_values = sheet.range(f'{row_index}:{row_index}').value
-                    if all(cell is None for cell in row_values):
-                        #print(f'Row {row_index}')  # 비어 있는 행의 번호를 출력
+                    row_values = sheet.range(f'{row}:{row}').value
+                    if all(cell is None for cell in row_values) : # 비어 있는 행인지 확인
+                        #print(f'Row {row}')  
                         break
-                    row_index += 1
-                tableEndValue = sheet.range(f'A{row_index-1}').value  # 테이블 끝행의 A열 값 읽기
-                print('Row' + str(row_index-1) + ':' + tableEndValue)
+                    row += 1
+                tableEndValue = sheet.range(f'A{row-1}').value  # 테이블 끝행의 A열 값 읽기
+                #print('Row' + str(row-1) + ':' + tableEndValue)
                 if tableEndValue != '합 계':
-                    sheet.api.Rows(row_index).Insert()  # 새 행 삽입
-                    sheet.range(f'A{row_index}').value = '합 계'  # 새 행의 A열에 '합 계' 입력
+                    sheet.api.Rows(row).Insert()  # 새 행 삽입
+                    sheet.range(f'A{row}').value = '합 계'  # 새 행의 A열에 '합 계' 입력
                     last_row += 1  # 행이 추가되었으므로 마지막 행 번호 업데이트
             else:
-                row_index += 1
+                row += 1
+        
+        # '평균 취득/처분 단가' 구하기
+        row = 1
+        while row <= last_row :
+            value = sheet.range(f'A{row}').value  # 각 행의 A열 값 읽기
+            if value == '회사명' :
+                tableIndexRow = row + 3     
+                case, deltaCol, priceCol, remarksCol, sumRow = tableForm(sheet, tableIndexRow) #테이블 형식, 증감열, 비고열
+                if case == 1 :
+                    # 1. '증감X취득/처분 단가' 열 값 채워넣고 합계 구하기
+                    for row_index in range(tableIndexRow + 1, sumRow) :
+                        delta_cell_value = sheet.range(row_index, deltaCol).value
+                        price_cell_value = sheet.range(row_index, priceCol).value
 
+                        # Extract numeric part from the price cell value
+                        if isinstance(price_cell_value, str):
+                            # Find all numeric parts and concatenate them
+                            numbers = re.findall(r'[0-9]+', price_cell_value)
+                            concatenated_number = ''.join(numbers)
+                            if concatenated_number:
+                                # Convert the concatenated number to a float
+                                numeric_price = float(concatenated_number)
+                            else:
+                                numeric_price = 0  # Default to 0 if no numbers found
+
+                             # Calculate the product and write it back to Excel
+                            product = delta_cell_value * numeric_price
+                            sheet.range(row_index, remarksCol + 1).value = product
+                        else:
+                            #numeric_price = price_cell_value  # Use the value directly if it's already a number
+                            # Calculate the product and write it back to Excel
+                            product = delta_cell_value * numeric_price
+                            sheet.range(row_index, remarksCol + 1).value = product
+                            delta_cell = sheet.range(row_index, deltaCol).get_address(0, 0)  # Address of the deltaCol cell
+                            price_cell = sheet.range(row_index, priceCol).get_address(0, 0)  # Address of the priceCol cell
+                            target_cell = (row_index, remarksCol + 1)  # Target cell for the result
+                            sheet.range(target_cell).formula = f'=PRODUCT({delta_cell}, {price_cell})'  # Set the formula for multiplication
+                    
+                    # 2. 증감 합계, 취득/처분 단가 합계, 취득/처분 단가 평균 구하기
+                    # 증감 합계
+                    cell_value = sheet.range((sumRow, deltaCol)).value
+                    if not is_number(cell_value) : #증감 합계가 구해져 있지 않은 경우
+                        start_cell = sheet.range((tableIndexRow + 1, deltaCol)).get_address(0, 0)  # Get the address of the start cell
+                        end_cell = sheet.range((sumRow - 1, deltaCol)).get_address(0, 0)  # Get the address of the end cell
+                        sheet.range((sumRow, deltaCol)).formula = f'=SUM({start_cell}:{end_cell})'  # Set the SUM formula
+                        print('Case 1 합계 구함')
+                    
+                    # 취득/처분 단가 합계
+                    start_cell = sheet.range((tableIndexRow + 1, remarksCol + 1)).get_address(0, 0)  # Get the address of the start cell
+                    end_cell = sheet.range((sumRow - 1, remarksCol + 1)).get_address(0, 0)  # Get the address of the end cell
+                    sheet.range((sumRow, remarksCol + 1)).formula = f'=SUM({start_cell}:{end_cell})'  # Set the SUM formula
+                    
+                    # 취득/처분 단가 평균
+                    # Get the addresses of the cells in Excel's A1 notation
+                    dividend_cell = sheet.range((sumRow, remarksCol + 1)).get_address(0, 0)
+                    divisor_cell = sheet.range((sumRow, deltaCol)).get_address(0, 0)
+                    
+                    # Set the formula for division
+                    sheet.range((sumRow, remarksCol)).formula = f'={dividend_cell}/{divisor_cell}'
+                    row = sumRow + 1
+                elif case == 2 :             
+                    print('Case 2 unsupported')
+                    row += 1
+            else :
+                row += 1
+        
+        
+
+        book.save()  # 변경 사항 저장
     finally:
         book.close()  # 파일 닫기
         app.quit()  # Excel 애플리케이션 종료
 
 
 def main () :
-    equityFolder = '2024.01.18_지분공시'  # Update the folder path
+    equityFolder = '2024.01.22_지분공시'  # Update the folder path
     xlsxFilePath = HTMLtoExcel(equityFolder)
     #xlsxFilePath = 'E:/bbAutomation/dartScraping/2024.01.18_지분공시/2024.01.18_지분공시_v1.xlsx'
     #xlsxFilePath = '/Users/yee/Documents/dartScraping/2024.01.18_지분공시/2024.01.18_지분공시_v1.xlsx'
-    adjustnExcel(xlsxFilePath)
+    adjustExcel(xlsxFilePath)
     #calculateFirstVersionExcel(xlsxFilePath)
 
 
 main()
-
-'''
-file_path=os.path.join(os.getcwd(), 'example.xlsx')
-# 파일이 존재하지 않으면 새 파일 생성
-if not os.path.exists(file_path):
-    wb = xw.Book()  # 새 워크북 생성
-    wb.save(file_path)  # 파일로 저장
-else:
-    wb = xw.Book(file_path)  # 기존 파일 열기
-
-sheet = wb.sheets['Sheet1']
-
-# 엑셀에 숫자를 세로로 쓰기
-numbers = [1, 2, 3, 4, 5]  # 예시 데이터
-sheet.range('A1').options(transpose=True).value = numbers
-
-# VBA의 SUM 함수를 사용하여 합 구하기
-sum_formula = f'=SUM(A1:A{len(numbers)})'
-sheet.range('B1').value = sum_formula
-
-# 계산된 합 가져오기
-total_sum = sheet.range('B1').value
-print("계산된 합:", total_sum)
-
-# 엑셀 파일 저장 및 닫기
-wb.save(file_path)
-wb.close()
-
-def calculateFirstVersionExcel(xlsxFilePath) :
-    # 엑셀 파일을 불러옵니다.
-    df = pd.read_excel(xlsxFilePath)
-
-    tables_info = []
-        tables_info.append({
-        'top_left_cell': (left_table_start_row, left_table_start_col_label),
-        'bottom_right_cell': (table_data_end_row - 1, df.columns[left_table_end_col]),
-    })
-
-    # 첫 번째 열을 순회하며 '회사명'이라는 단어를 찾습니다.
-    company_name_row = None
-    for index, value in enumerate(df.iloc[:, 0]):
-        if '회사명' in str(value):
-            company_name_row = index
-            #print(f"'회사명'은 {index + 1}번째 행에 있습니다.")
-            
-            # '회사명'이 있는 행에서 3행 뒤부터 '증감'이라는 단어를 찾습니다.
-            row_index = company_name_row + 3
-            if '보고사유' in df.iloc[row_index, 0] :
-                # Case 1
-                # 단순히 증감 * 처분 단가로 평균단가 구하기
-                for col_index in range(len(df.columns)):
-                    if '증감' in str(df.iloc[row_index, col_index]):
-                        deltaRow = row_index
-                        deltaCol = col_index
-                        print(f"'증감'은 {row_index + 2}행 " + number_to_alphabet(col_index + 1) + "열에 있습니다.")
-                        break
-                # '증감'의 '합계'가 존재하지 않을 경우
-                
-
-            elif '성명' in df.iloc[row_index, 0] :
-                # Case 2
-                # 처분 단가 2열 중 숫자인 것만, 0은 숫자X, 혼잡(숫자+문자)인 경우 숫자만 가져오기
-                for col_index in range(len(df.columns)):
-                    if '증감' in str(df.iloc[row_index, col_index]):
-                        print(f"'증감'은 {row_index + 2}행 " + number_to_alphabet(col_index + 1) + "열에 있습니다.")
-                        break
-            else :
-                print('알지 못하는 형식입니다')
-                sys.exit(0)
-'''
-
-
-
-
-
-
-
-
-
-
-'''
-def adjustnExcel(xlsxFilePath) : 
-    # 엑셀 파일을 불러옵니다.
-    df = pd.read_excel(xlsxFilePath)
-
-    # Get the shape of the DataFrame
-    num_rows, num_cols = df.shape
-    print (num_rows, num_cols)
-
-    # Create a list to store new rows
-    row_index = 0
-    while row_index < num_rows:
-        if df.iloc[row_index, 0] == '회사명':
-            #print('회사명 : ' + df.iloc[row_index, 1] + ' row_index : ' + str(row_index + 2))
-            while row_index < num_rows and not df.iloc[row_index].isnull().all():
-                row_index += 1
-            #print('isnuall all : ' + str(row_index + 2))
-            if row_index < num_rows and df.iloc[row_index - 1, 0] != '합 계':
-                # 새로운 행을 생성하고 첫 번째 열에 '합 계'를 추가합니다.
-                new_row = ['합 계'] + [np.nan] * (num_cols - 1)
-                # DataFrame에 새로운 행을 삽입합니다.
-                #df = pd.concat([df.iloc[:row_index], pd.DataFrame([new_row], columns=df.columns), df.iloc[row_index:]]).reset_index(drop=True)
-                df = pd.concat([df.iloc[:row_index], pd.DataFrame([new_row], columns=df.columns), df.iloc[row_index:]], ignore_index=True)
-                print('new_row inserted at index: ' + str(row_index + 2))
-                # 행을 추가했으므로 num_rows 업데이트
-                num_rows += 1
-                #print (num_rows, num_cols)
-        row_index += 1
-
-    # Save the modified DataFrame to a new Excel file
-    secondxlsxFilePath = os.path.join(equityFolder, secondxlsxFile)
-    df.to_excel(secondxlsxFilePath, index=False)
-
-    if is_row_empty == True :
-        print(f"Row {row_index+2} is empty: {is_row_empty}")
-
-    # 첫 번째 열을 순회하며 '회사명'이라는 단어를 찾습니다.
-    company_name_row = None
-    for index, value in enumerate(df.iloc[:, 0]):
-        if '회사명' in str(value):
-            company_name_row = index
-            #print(f"'회사명'은 {index + 1}번째 행에 있습니다.")
-            
-            # '회사명'이 있는 행에서 3행 뒤부터 '증감'이라는 단어를 찾습니다.
-            row_index = company_name_row + 3
-            if '보고사유' in df.iloc[row_index, 0] :
-                # Case 1
-                # 단순히 증감 * 처분 단가로 평균단가 구하기
-                for col_index in range(len(df.columns)):
-                    if '증감' in str(df.iloc[row_index, col_index]):
-                        deltaRow = row_index
-                        deltaCol = col_index
-                        print(f"'증감'은 {row_index + 2}행 " + number_to_alphabet(col_index + 1) + "열에 있습니다.")
-                        break
-                # '증감'의 '합계'가 존재하지 않을 경우
-                
-
-            elif '성명' in df.iloc[row_index, 0] :
-                # Case 2
-                # 처분 단가 2열 중 숫자인 것만, 0은 숫자X, 혼잡(숫자+문자)인 경우 숫자만 가져오기
-                for col_index in range(len(df.columns)):
-                    if '증감' in str(df.iloc[row_index, col_index]):
-                        print(f"'증감'은 {row_index + 2}행 " + number_to_alphabet(col_index + 1) + "열에 있습니다.")
-                        break
-            else :
-                print('알지 못하는 형식입니다')
-                sys.exit(0)
-'''
