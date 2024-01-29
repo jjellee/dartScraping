@@ -1,4 +1,3 @@
-
 import pandas as pd
 import xlwings as xw
 import os, sys
@@ -63,11 +62,18 @@ def extract_strings_from_file(file_path):
                 results.append((left_string.strip(), right_string.strip()))
     return results
 
-def deleteRow_specificRange(sheet, row, start_col, end_col) :
-    # A열에서 1번째부터 15번째 셀을 삭제하고, 아래 셀들을 위로 이동
-    for col in range(start_col, end_col + 1) :
-        sheet.cell(row=row, column=col).value = sheet.cell(row=row + 1, column=col).value
+def deleteRow_specificRange(sheet, start_row, end_row, start_col, end_col) :
+    # start_row부터 end_row까지의 행들을 삭제하고, 아래 행들을 위로 이동
+    for row in range(start_row, end_row + 1):
+        for col in range(start_col, end_col + 1):
+            sheet.cell(row=row, column=col).value = sheet.cell(row=row + 1, column=col).value
 
+    #print('start_row:'+str(start_row))
+    #print('end_row:'+str(end_row))
+    # end_row의 start_col부터 end_col까지의 셀 값 삭제
+    for col in range(start_col, end_col + 1):
+        sheet.cell(row=end_row, column=col).value = None
+    
 
 #def convert_html_table_to_excel(company_submitter, html_file_path, excel_writer, sheet_name, start_row):
 
@@ -102,24 +108,44 @@ def convert_html_table_to_excel(company_submitter, tradeHTMLlfilePath, reporterH
     worksheet = excel_writer.sheets[sheet_name]
 
     #tradeTables
-    target_row = start_row + 5
-    start_col = 1
-    end_col = secondTableColumn
-    deleteRow_specificRange(worksheet, target_row, start_col, end_col)
+    startRow = start_row + 5
+    endRow = startRow + len(tradeTables[0])
+    startCol = 1
+    endCol = secondTableColumn - 1
+    #print('회사명 row : ' + str(start_row + 1))
+    deleteRow_specificRange(worksheet, startRow, endRow, startCol, endCol)
 
+    
     #reporterTables
-    target_row = start_row + 3
-    start_col = secondTableColumn
-    end_col = thirdTableColumn
-    deleteRow_specificRange(worksheet, target_row, start_col, end_col)
-
+    startRow = start_row + 3
+    endRow = startRow + len(reporterTables[0])
+    startCol = secondTableColumn
+    endCol = thirdTableColumn - 1
+    deleteRow_specificRange(worksheet, startRow, endRow, startCol, endCol)
+    
     #shareRatioTables
-    target_row = start_row + 6
-    start_col = thirdTableColumn
-    end_col = fourthTableColumn
-    deleteRow_specificRange(worksheet, target_row, start_col, end_col)
+    if '임원' in company_submitter[2] : 
+        startRow = start_row + 5
+    else :
+        startRow = start_row + 6
+    endRow = startRow + len(shareRatioTables[0])
+    startCol = thirdTableColumn
+    endCol = fourthTableColumn - 1
+    deleteRow_specificRange(worksheet, startRow, endRow, startCol, endCol)
 
-     # Write company_submitter[0] and company_submitter[1] in specified cells using openpyxl method
+    
+    # 'Unnamed' 제거
+    if '임원' in company_submitter[2] : 
+        #column_letter = number_to_alphabet(thirdTableColumn+2)
+        #print('cell : ' + str(start_row+3) + f':{column_letter}')
+        #print('cell : ' + str(start_row+3) + ':' + str(thirdTableColumn+2))
+        #rint(worksheet.cell(row=start_row + 3, column=thirdTableColumn+2).value)
+        if 'Unnamed' in worksheet.cell(row=start_row + 3, column=thirdTableColumn+2).value :
+            worksheet.cell(row=start_row + 3, column=thirdTableColumn+2).value = None
+        if 'Unnamed' in worksheet.cell(row=start_row + 4, column=thirdTableColumn+2).value :
+            worksheet.cell(row=start_row + 4, column=thirdTableColumn+2).value = None
+
+    # Write company_submitter[0] and company_submitter[1] in specified cells using openpyxl method
     worksheet.cell(row=start_row + 1, column=2, value='회사명')  # Writing in the first cell of start_row
     worksheet.cell(row=start_row + 1, column=3, value=company_submitter[0])  # Writing in the first cell of start_row
 
@@ -360,9 +386,9 @@ def calculateAveragePrice(xlsxFilePath) :
                 tableEndValue = sheet.range(f'A{row-1}').value  # 테이블 끝행의 A열 값 읽기
                 #print('Row' + str(row-1) + ':' + tableEndValue)
                 if tableEndValue != '합 계':
-                    sheet.api.Rows(row).Insert()  # 새 행 삽입
+                    #sheet.api.Rows(row).Insert()  # 새 행 삽입
                     sheet.range(f'A{row}').value = '합 계'  # 새 행의 A열에 '합 계' 입력
-                    last_row += 1  # 행이 추가되었으므로 마지막 행 번호 업데이트
+                    #last_row += 1  # 행이 추가되었으므로 마지막 행 번호 업데이트
             else:
                 row += 1
 
@@ -451,8 +477,6 @@ def calculateAveragePrice(xlsxFilePath) :
                 '''
             else :
                 row += 1
-        
-        
 
         book.save()  # 변경 사항 저장
     finally:
@@ -461,12 +485,11 @@ def calculateAveragePrice(xlsxFilePath) :
 
 
 def main () :
-    equityFolder = '2024.01.26_지분공시'  # Update the folder path
+    equityFolder = '2024.01.29_지분공시'  # Update the folder path
     xlsxFilePath = HTMLtoExcel(equityFolder)
     #xlsxFilePath = 'E:/bbAutomation/dartScraping/2024.01.18_지분공시/2024.01.18_지분공시_v1.xlsx'
     #xlsxFilePath = '/Users/yee/Documents/dartScraping/2024.01.18_지분공시/2024.01.18_지분공시_v1.xlsx'
-    #calculateAveragePrice(xlsxFilePath)
-    #calculateFirstVersionExcel(xlsxFilePath)
+    calculateAveragePrice(xlsxFilePath)
 
 
 main()
