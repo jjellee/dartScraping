@@ -8,6 +8,7 @@ from itertools import groupby
 
 secondTableColumn = 14
 thirdTableColumn = 22
+fourthTableColumn = 42
 
 def extract_number_from_filename(filename):
     # 정규 표현식을 사용하여 파일명에서 숫자 부분을 찾습니다.
@@ -62,6 +63,12 @@ def extract_strings_from_file(file_path):
                 results.append((left_string.strip(), right_string.strip()))
     return results
 
+def deleteRow_specificRange(sheet, row, start_col, end_col) :
+    # A열에서 1번째부터 15번째 셀을 삭제하고, 아래 셀들을 위로 이동
+    for col in range(start_col, end_col + 1) :
+        sheet.cell(row=row, column=col).value = sheet.cell(row=row + 1, column=col).value
+
+
 #def convert_html_table_to_excel(company_submitter, html_file_path, excel_writer, sheet_name, start_row):
 
 def convert_html_table_to_excel(company_submitter, tradeHTMLlfilePath, reporterHTMLfilePath, shareRatioHTMLfilePath, excel_writer, sheet_name, start_row) : 
@@ -84,7 +91,6 @@ def convert_html_table_to_excel(company_submitter, tradeHTMLlfilePath, reporterH
 
     # 작업 테이블
     tradeTables[0].to_excel(excel_writer, sheet_name=sheet_name, startrow=start_row + 2, index=True)
-    #reporterTables[0].iloc[1:].to_excel(excel_writer, sheet_name=sheet_name, startrow=start_row + 2, startcol=secondTableColumn, index=True)
     reporterTables[0].to_excel(excel_writer, sheet_name=sheet_name, startrow=start_row + 2, startcol=secondTableColumn, index=True)
     shareRatioTables[0].to_excel(excel_writer, sheet_name=sheet_name, startrow=start_row + 2, startcol=thirdTableColumn, index=True)
 
@@ -94,6 +100,24 @@ def convert_html_table_to_excel(company_submitter, tradeHTMLlfilePath, reporterH
     # Get the workbook and the sheet
     #workbook  = excel_writer.book
     worksheet = excel_writer.sheets[sheet_name]
+
+    #tradeTables
+    target_row = start_row + 5
+    start_col = 1
+    end_col = secondTableColumn
+    deleteRow_specificRange(worksheet, target_row, start_col, end_col)
+
+    #reporterTables
+    target_row = start_row + 3
+    start_col = secondTableColumn
+    end_col = thirdTableColumn
+    deleteRow_specificRange(worksheet, target_row, start_col, end_col)
+
+    #shareRatioTables
+    target_row = start_row + 6
+    start_col = thirdTableColumn
+    end_col = fourthTableColumn
+    deleteRow_specificRange(worksheet, target_row, start_col, end_col)
 
      # Write company_submitter[0] and company_submitter[1] in specified cells using openpyxl method
     worksheet.cell(row=start_row + 1, column=2, value='회사명')  # Writing in the first cell of start_row
@@ -106,7 +130,7 @@ def convert_html_table_to_excel(company_submitter, tradeHTMLlfilePath, reporterH
     worksheet.cell(row=start_row + 2, column=3, value=company_submitter[1])  # Writing in the first cell of the next row
 
     #worksheet.delete_rows(start_row + 3)
-    worksheet.delete_rows(start_row + 5)
+    #worksheet.delete_rows(start_row + 5)
 
     return start_row + max(len(tradeTables[0]), len(reporterTables[0]), len(shareRatioTables[0])) + 7  # Return the new start row for the next table
 
@@ -441,7 +465,7 @@ def main () :
     xlsxFilePath = HTMLtoExcel(equityFolder)
     #xlsxFilePath = 'E:/bbAutomation/dartScraping/2024.01.18_지분공시/2024.01.18_지분공시_v1.xlsx'
     #xlsxFilePath = '/Users/yee/Documents/dartScraping/2024.01.18_지분공시/2024.01.18_지분공시_v1.xlsx'
-    calculateAveragePrice(xlsxFilePath)
+    #calculateAveragePrice(xlsxFilePath)
     #calculateFirstVersionExcel(xlsxFilePath)
 
 
