@@ -211,7 +211,7 @@ def convert_html_table_to_excel(company_submitter, tradeHTMLlfilePath, reporterH
     #worksheet.delete_rows(start_row + 3)
     #worksheet.delete_rows(start_row + 5)
 
-    return start_row + max(len(tradeTables[0]), len(reporterTables[0]), len(shareRatioTables[0])) + 10  # Return the new start row for the next table
+    return start_row + max(len(tradeTables[0]), len(reporterTables[0]), len(shareRatioTables[0])) + 8  # Return the new start row for the next table
 
 def extract_number_from_filename(filename):
     match = re.search(r'\d{1,3}', filename)
@@ -971,7 +971,7 @@ def Form1TableSummary(sheet_d, tableIndexRow) :
     # tableTransactionStartRow부터 tableTransactionEndRow까지 반복
     for row in range(tableTransactionStartRow, tableTransactionEndRow + 1):
         # 현재 행의 averagePriceCol 열의 값 가져오기
-        current_value_str = sheet_d.range((row, averagePriceCol)).value
+        current_value_str = sheet_d.range((row, delataCol)).value
         current_value = 0
         try:
             # 문자열을 부동소수점 숫자로 변환
@@ -997,8 +997,8 @@ def Form1ReporterSummary(sheet_d, reporterIndexRow, reporterIndexCol) :
     return submitterDetails, birthday
 
 def Form1ShareRatioSummary(sheet_d, reporterIndexRow, reporterIndexCol) :
-    leftRatio = sheet_d.range((reporterIndexRow + 2, reporterIndexCol + 3)).value # 특정증권 등
-    rightRatio = sheet_d.range((reporterIndexRow + 2, reporterIndexCol + 5)).value # 주권
+    leftRatio = sheet_d.range((reporterIndexRow + 2, reporterIndexCol + 4)).value # 특정증권 등
+    rightRatio = sheet_d.range((reporterIndexRow + 2, reporterIndexCol + 6)).value # 주권
     shareRatio = leftRatio if rightRatio is None else rightRatio
     return shareRatio
 
@@ -1029,6 +1029,11 @@ def writeSummaryForm1(sheet_d, sheet_s, row_d, row_s) : #row_d : '회사명' row
     sheet_d.range((tableTransactionEndRow+3,1)).value = ['공시 회사', '공시일', '변동일(S)', '변동일(E)', 'S~E (수)', '매매', '공시주체', '이름', '출생년도', '취득방법', '수량(증감)', '변동후', '지분율', '단가']
     sheet_d.range((tableTransactionEndRow+4,1)).value = [companyName, todayDate, startDate, endDate, transactionCount, buySell, submitterDetails, submitter, birthday, buySellDetail, delta, equityCount, shareRatio, averagePrice]
     
+    # endDate 셀에 날짜 형식 설정
+    sheet_d.range((tableTransactionEndRow+4,4)).number_format = 'yyyy-mm-dd'
+
+    # birthday 셀에 일반 텍스트 형식 설정
+    sheet_d.range((tableTransactionEndRow+4,9)).number_format = '@'
     return tableTransactionEndRow + 5, row_s
 
 def writeSummaryFile(equityFolder, detailFilePath) :
