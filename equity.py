@@ -1026,6 +1026,13 @@ def writeSummaryForm1(sheet_d, sheet_s, row_d, row_s) : #row_d : '회사명' row
 
     #sheet_d.range(f"{tableTransactionEndRow+1}:{tableTransactionEndRow+1 + 2}").api.Insert(Shift=1)
 
+    # buySellDetail 값에서 '(+)'와 '(-)' 문자 삭제
+    buySellDetail = buySellDetail.replace('(+)','').replace('(-)','')
+
+    # shareRatio가 숫자 타입인지 확인하고, 숫자라면 100으로 나누기
+    if isinstance(shareRatio, (int, float)):
+        shareRatio = shareRatio / 100
+        
     sheet_d.range((tableTransactionEndRow+3,1)).value = ['공시 회사', '공시일', '변동일(S)', '변동일(E)', 'S~E (수)', '매매', '공시주체', '이름', '출생년도', '취득방법', '수량(증감)', '변동후', '지분율', '단가']
     sheet_d.range((tableTransactionEndRow+4,1)).value = [companyName, todayDate, startDate, endDate, transactionCount, buySell, submitterDetails, submitter, birthday, buySellDetail, delta, equityCount, shareRatio, averagePrice]
     
@@ -1034,6 +1041,10 @@ def writeSummaryForm1(sheet_d, sheet_s, row_d, row_s) : #row_d : '회사명' row
 
     # birthday 셀에 일반 텍스트 형식 설정
     sheet_d.range((tableTransactionEndRow+4,9)).number_format = '@'
+
+    # shareRatio 셀에 백분율 형식 설정, 소수 자릿수 2로 설정
+    sheet_d.range((tableTransactionEndRow+4,13)).number_format = '0.00%'
+     
     return tableTransactionEndRow + 5, row_s
 
 def writeSummaryFile(equityFolder, detailFilePath) :
@@ -1100,7 +1111,7 @@ def writeSummaryFile(equityFolder, detailFilePath) :
         app.quit()  # Excel 애플리케이션 종료
 
 def main () :
-    equityFolder = '2024.02.02_지분공시'  # Update the folder path
+    equityFolder = '2024.02.05_지분공시'  # Update the folder path
     xlsxFilePath = HTMLtoExcel(equityFolder)
     
     #calculateAveragePrice(xlsxFilePath)
