@@ -1293,14 +1293,14 @@ def writeSummaryFile(equityFolder, detailFilePath) :
         app.quit()  # Excel 애플리케이션 종료
 
 def main () :
-    equityFolder = '2024.02.08_지분공시'  # Update the folder path
+    equityFolder = '2024.02.13_지분공시'  # Update the folder path
     xlsxFilePath = HTMLtoExcel(equityFolder)
     
     #calculateAveragePrice(xlsxFilePath)
     
     improvement_calculateAveragePrice(xlsxFilePath)
     #xlsxFilePath = '/Users/yee/Documents/dartScraping/2024.01.31_지분공시/2024.01.31_지분공시_detail.xlsx'
-    xlsxFilePath = 'E:/bbAutomation/dartScraping/2024.02.08_지분공시/2024.02.08_지분공시_detail.xlsx'
+    #xlsxFilePath = 'E:/bbAutomation/dartScraping/2024.02.08_지분공시/2024.02.08_지분공시_detail.xlsx'
     #print('writeSummaryFile')
     writeSummaryFile(equityFolder, xlsxFilePath)
 
