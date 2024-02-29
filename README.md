@@ -8,6 +8,7 @@ pnpm install xlsx
 npx playwright install
 
 코드 수정
+
 fetchEquity.ts
 const date = '2024.02.29'; -> const date = '오늘날짜';
 
