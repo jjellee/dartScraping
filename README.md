@@ -1,7 +1,9 @@
 # dartScraping
 설치 방법
 pnpm i
+
 pnpm install xlsx
+
 npx playwright install
 
 코드 수정
