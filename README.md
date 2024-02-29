@@ -13,4 +13,4 @@ fetchEquity.ts
 const date = '2024.02.29'; -> const date = '오늘날짜';
 
 equity.py
-equityFolder = '2024.02.29_지분공시' -> 'equityFolder = 오늘날짜_지분공시';
+equityFolder = '2024.02.29_지분공시' -> equityFolder = '오늘날짜_지분공시';
