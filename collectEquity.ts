@@ -228,7 +228,7 @@ async function 주식등의대량보유상황보고서( 회사지분공시홈페
   
     const 보고자및특별관계자별보유내역페이지= await browser.newPage();
     await 보고자및특별관계자별보유내역페이지.goto(다트홈페이지 + 보고자및특별관계자별보유내역url);
-    console.log('tryPage!!!!!!!')
+    
     await 보고자및특별관계자별보유내역페이지.waitForTimeout(1000);
 
     //보고자및특별관계자보유내역html = await 보고자및특별관계자별보유내역페이지.$eval('table', (table) => table.outerHTML);
