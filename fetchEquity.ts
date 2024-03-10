@@ -5,7 +5,7 @@ import { collectEquityPages, saveHTMLfile, saveToExcel } from './collectEquity';
 
 async function main() {
   try {
-    const date = '2024.02.29';
+    const date = '2024.03.08';
     const 지분공시파일명 = date + '_지분공시' + '.xlsx';
     const 지분공시폴더 = date + '_지분공시'
     const 지분공시페이지 = 'https://dart.fss.or.kr/dsac001/mainO.do?selectDate=' + date +  '&sort=time';

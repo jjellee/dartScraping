@@ -61,6 +61,7 @@ export async function saveHTMLfile(equityList: any[], 지분공시폴더 : strin
     else if (row.reportType.includes('주식등의대량보유상황보고서')){ //주식등의대량보유상황보고서 #&& !row.reportType.includes('기재정정')      
       const 대량보유자에관한사항htmlFilePath = path.join(지분공시폴더, `${idx+1}보고자에관한상황.html`);
       const 주식등의종류별보유내역htmlFilePath = path.join(지분공시폴더, `${idx+1}소유특정증권등의수및소유비율.html`);
+      const 의결권있는발행주식총수htmlFilePath= path.join(지분공시폴더, `${idx+1}의결권있는발행주식총수.html`);
       const 주식등의세부변동내역htmlFilePath = path.join(지분공시폴더, `${idx+1}세부변동내역.html`);
 
       // 파일이 존재한다면 스킾
@@ -69,10 +70,11 @@ export async function saveHTMLfile(equityList: any[], 지분공시폴더 : strin
         continue
       }
       
-      const [대량보유자에관한사항html, 주식등의종류별보유내역html, 주식등의세부변동내역html] = await 주식등의대량보유상황보고서(row.회사지분공시홈페이지);
+      const [대량보유자에관한사항html, 주식등의종류별보유내역html, 의결권있는발행주식총수html, 주식등의세부변동내역html] = await 주식등의대량보유상황보고서(row.회사지분공시홈페이지);
 
       await saveFile(대량보유자에관한사항html, 대량보유자에관한사항htmlFilePath);
-      await saveFile(주식등의종류별보유내역html, 주식등의종류별보유내역htmlFilePath);      
+      await saveFile(주식등의종류별보유내역html, 주식등의종류별보유내역htmlFilePath);
+      await saveFile(의결권있는발행주식총수html, 의결권있는발행주식총수htmlFilePath);
       await saveFile(주식등의세부변동내역html, 주식등의세부변동내역htmlFilePath);
 
     }
@@ -194,7 +196,7 @@ async function 임원주요주주특정증권등소유상황보고서 ( 회사�
   return [보고자에관한상황html, 소유특정증권등의수및소유비율html, 세부변동내역html];
 }
 
-async function 주식등의대량보유상황보고서( 회사지분공시홈페이지 : string ) : Promise<[string, string, string]> {
+async function 주식등의대량보유상황보고서( 회사지분공시홈페이지 : string ) : Promise<[string, string, string, string]> {
   
   const browser: Browser = await chromium.launch({ headless: false });
   const 지분공시페이지 = await browser.newPage();
@@ -221,6 +223,8 @@ async function 주식등의대량보유상황보고서( 회사지분공시홈페
   const tryPage2 = '1. 보고자 및 특별관계자의 주식등의 종류별 보유내역'; // (약식)
 
   let 보고자및특별관계자보유내역html: string = ''; // 변수 초기화
+  let 의결권있는발행주식총수html:string = '';
+  
   const visitedPage = await tryClickByText(지분공시페이지, tryPage1, tryPage2);
   if (visitedPage == tryPage1) {
     iframeElement = await 지분공시페이지.$('iframe#ifrm'); // id가 'ifrm'인 iframe 요소 찾기
@@ -231,13 +235,29 @@ async function 주식등의대량보유상황보고서( 회사지분공시홈페
     
     await 보고자및특별관계자별보유내역페이지.waitForTimeout(1000);
 
-    //보고자및특별관계자보유내역html = await 보고자및특별관계자별보유내역페이지.$eval('table', (table) => table.outerHTML);
+    const 테이블HTMLs = await 보고자및특별관계자별보유내역페이지.$$eval('table', (tables) => {
+      // thead를 포함하는 모든 table을 찾습니다.
+      const tablesWithThead = tables.filter(table => table.querySelector('thead'));
+      // 찾은 tables에서 첫 번째와 두 번째 table의 outerHTML을 배열로 반환합니다.
+      // 만약 thead를 포함하는 table이 없다면, 해당 위치에 빈 문자열을 넣어 반환합니다.
+      const resultHtmls = [
+        tablesWithThead.length > 0 ? tablesWithThead[0].outerHTML : '',
+        tablesWithThead.length > 1 ? tablesWithThead[1].outerHTML : ''
+      ];
+      return resultHtmls;
+    });
+    
+    // 배열의 첫 번째와 두 번째 요소를 각각 다른 변수에 저장합니다.
+    보고자및특별관계자보유내역html = 테이블HTMLs[0];
+    의결권있는발행주식총수html = 테이블HTMLs[1];
+    /*
     보고자및특별관계자보유내역html = await 보고자및특별관계자별보유내역페이지.$$eval('table', (tables) => {
       // 모든 table 요소 중에서 thead를 포함하는 첫 번째 table을 찾습니다.
       const tableWithThead = tables.find(table => table.querySelector('thead'));
       // 찾은 table의 outerHTML을 반환합니다. 만약 thead를 포함하는 table이 없다면, 빈 문자열을 반환합니다.
       return tableWithThead ? tableWithThead.outerHTML : '';
     });
+    */
   } else if (visitedPage == tryPage2) {
     iframeElement = await 지분공시페이지.$('iframe#ifrm'); // id가 'ifrm'인 iframe 요소 찾기
     const 보고자및특별관계자별보유내역url = await iframeElement?.getAttribute('src'); // src 속성 가져오기
@@ -249,13 +269,29 @@ async function 주식등의대량보유상황보고서( 회사지분공시홈페
   
     //const 보고자및특별관계자보유내역table = await 보고자및특별관계자별보유내역페이지.$('text="1. 보고자 및 특별관계자의 주식등의 종류별 보유내역" >> xpath=following-sibling::table[1]');
     // 첫 번째 테이블의 HTML 추출
-    //보고자및특별관계자보유내역html = await 보고자및특별관계자별보유내역페이지.$eval('table', (table) => table.outerHTML);
+    /*
     보고자및특별관계자보유내역html = await 보고자및특별관계자별보유내역페이지.$$eval('table', (tables) => {
       // 모든 table 요소 중에서 thead를 포함하는 첫 번째 table을 찾습니다.
       const tableWithThead = tables.find(table => table.querySelector('thead'));
       // 찾은 table의 outerHTML을 반환합니다. 만약 thead를 포함하는 table이 없다면, 빈 문자열을 반환합니다.
       return tableWithThead ? tableWithThead.outerHTML : '';
     });
+    */
+    const 테이블HTMLs = await 보고자및특별관계자별보유내역페이지.$$eval('table', (tables) => {
+      // thead를 포함하는 모든 table을 찾습니다.
+      const tablesWithThead = tables.filter(table => table.querySelector('thead'));
+      // 찾은 tables에서 첫 번째와 두 번째 table의 outerHTML을 배열로 반환합니다.
+      // 만약 thead를 포함하는 table이 없다면, 해당 위치에 빈 문자열을 넣어 반환합니다.
+      const resultHtmls = [
+        tablesWithThead.length > 0 ? tablesWithThead[0].outerHTML : '',
+        tablesWithThead.length > 1 ? tablesWithThead[1].outerHTML : ''
+      ];
+      return resultHtmls;
+    });
+    
+    // 배열의 첫 번째와 두 번째 요소를 각각 다른 변수에 저장합니다.
+    보고자및특별관계자보유내역html = 테이블HTMLs[0];
+    의결권있는발행주식총수html = 테이블HTMLs[1];
   } else {
     console.log("'1. 보고자 및 특별관계자별 보유내역' or  '1. 보고자 및 특별관계자의 주식등의 종류별 보유내역' 둘 다 없음");
   }
@@ -274,7 +310,7 @@ async function 주식등의대량보유상황보고서( 회사지분공시홈페
   const tables = await 세부변동내역페이지.$$('table');
 
   // 블록 밖에서 변수를 선언하여 함수 전체에서 접근 가능하게 합니다.
-  let 주식등의세부변동내역html;
+  let 주식등의세부변동내역html:string = '';
   if (tables.length < 2) {
       console.log("테이블이 1개!");
       주식등의세부변동내역html = await tables[0].evaluate(node => node.outerHTML);
@@ -285,7 +321,7 @@ async function 주식등의대량보유상황보고서( 회사지분공시홈페
   }
   await browser.close();
   //console.log(htmlContent);
-  return [대량보유자에관한사항html, 보고자및특별관계자보유내역html, 주식등의세부변동내역html];
+  return [대량보유자에관한사항html, 보고자및특별관계자보유내역html, 의결권있는발행주식총수html, 주식등의세부변동내역html];
 }
 
 export async function collectEquityPages( 지분공시페이지 : string ) {

@@ -8,9 +8,9 @@ from dateutil import parser
 import datetime
 import time
 
-secondTableColumn = 16
-thirdTableColumn = 24
-fourthTableColumn = 44
+secondTableColumn = 17
+thirdTableColumn = 25
+fourthTableColumn = 41
 num_push_row_down = 0
 
 # Excel 열들에 대한 포맷을 설정하는 함수
@@ -32,12 +32,6 @@ def extract_number_from_filename(filename):
 def number_to_alphabet(number):
     # 숫자를 알파벳으로 변환 (1 -> 'A', 2 -> 'B', ...)
     return chr(64 + number)
-
-'''
-def alphabet_to_number(alphabet):
-    # 알파벳을 숫자로 변환 ('A' -> 1, 'B' -> 2, ...)
-    return ord(alphabet) - 64
-'''
 
 # 파일명이 숫자인지 확인하는 함수
 def is_number(s):
@@ -129,13 +123,15 @@ def push_row_down(sheet, row_number, start_col, end_col):
     for col in range(start_col + 1, end_col + 1):
         sheet.range((row_number, col)).value = None
 '''
-#def convert_html_table_to_excel(company_submitter, html_file_path, excel_writer, sheet_name, start_row):
 
-def convert_html_table_to_excel(company_submitter, tradeHTMLlfilePath, reporterHTMLfilePath, shareRatioHTMLfilePath, excel_writer, sheet_name, start_row) : 
+def convert_html_table_to_excel(company_submitter, tradeHTMLlfilePath, reporterHTMLfilePath, shareRatioHTMLfilePath, numberofSharesHTMLfilePath, excel_writer, sheet_name, start_row) : 
     # Read the HTML table
     tradeTables = pd.read_html(tradeHTMLlfilePath, encoding='utf-8')
     reporterTables = pd.read_html(reporterHTMLfilePath, encoding='utf-8')
     shareRatioTables = pd.read_html(shareRatioHTMLfilePath, encoding='utf-8')
+    numberofSharesTables = None
+    if numberofSharesHTMLfilePath is not None :
+        numberofSharesTables = pd.read_html(numberofSharesHTMLfilePath, encoding='utf-8')
 
     #print(tradeTables[0])
     #print(tables[0].columns)
@@ -153,7 +149,9 @@ def convert_html_table_to_excel(company_submitter, tradeHTMLlfilePath, reporterH
     tradeTables[0].to_excel(excel_writer, sheet_name=sheet_name, startrow=start_row + 2, index=True)
     reporterTables[0].to_excel(excel_writer, sheet_name=sheet_name, startrow=start_row + 2, startcol=secondTableColumn, index=True)
     shareRatioTables[0].to_excel(excel_writer, sheet_name=sheet_name, startrow=start_row + 2, startcol=thirdTableColumn, index=True)
-
+    if numberofSharesTables is not None : 
+        numberofSharesTables[0].to_excel(excel_writer, sheet_name=sheet_name, startrow=start_row + 2, startcol=fourthTableColumn, index=True)
+    
     # 원본 테이블 
     #tables[0].to_excel(excel_writer, sheet_name=sheet_name, startrow=start_row + 2, startcol=secondTableColumn, index=True)
 
@@ -185,7 +183,6 @@ def convert_html_table_to_excel(company_submitter, tradeHTMLlfilePath, reporterH
     startCol = thirdTableColumn
     endCol = fourthTableColumn - 1
     deleteRow_specificRange(worksheet, startRow, endRow, startCol, endCol)
-
     
     # 'Unnamed' 제거
     if '임원' in company_submitter[2] : 
@@ -235,7 +232,7 @@ def extract_details_from_filename(filename):
     number = int(number_match.group()) if number_match else None
 
     # 문자열 순서 정의
-    order_dict = {'세부변동내역': 1, '보고자에관한상황': 2, '소유특정증권등의수및소유비율': 3}
+    order_dict = {'세부변동내역': 1, '보고자에관한상황': 2, '소유특정증권등의수및소유비율': 3, '의결권있는발행주식총수': 4}
     for key in order_dict:
         if key in filename:
             return (number, order_dict[key])
@@ -270,10 +267,21 @@ def HTMLtoExcel(equityFolder) :
         start_row = 1
         for key, group in groupby(SHFs, key=lambda x: extract_details_from_filename(x)[0]):
             grouped_files = list(group)
-            if len(grouped_files) != 3 :
-                print(f'html파일이 3개가 이닙니다 : {grouped_files}')
-                sys.exit(-1)
             print(f"Processing files: {grouped_files}")
+            tradeHTMLlfilePath = os.path.join(equityFolder, grouped_files[0]) # 세부변동내역
+            reporterHTMLfilePath = os.path.join(equityFolder, grouped_files[1]) # 보고자에관한상황
+            shareRatioHTMLfilePath = os.path.join(equityFolder, grouped_files[2]) # 소유특정증권등의수및소유비율
+            if len(grouped_files) == 3 :
+                start_row = convert_html_table_to_excel(company_submitter_list[idx], tradeHTMLlfilePath, reporterHTMLfilePath, shareRatioHTMLfilePath, None, writer, sheet_name, start_row)
+            elif len(grouped_files) == 4 :
+                numberofSharesHTMLfilePath = os.path.join(equityFolder, grouped_files[3]) # 의결권있는발행주식총수
+                print(numberofSharesHTMLfilePath)
+                start_row = convert_html_table_to_excel(company_submitter_list[idx], tradeHTMLlfilePath, reporterHTMLfilePath, shareRatioHTMLfilePath, numberofSharesHTMLfilePath, writer, sheet_name, start_row)
+            else :
+                print(f'html파일이 3 혹은 4개가 이닙니다 : {grouped_files}')
+                sys.exit(-1)
+            idx = idx + 1
+            '''
             #order_dict = {'세부변동내역': 1, '보고자에관한상황': 2, '소유특정증권등의수및소유비율': 3}
             tradeHTMLlfilePath = os.path.join(equityFolder, grouped_files[0]) # 세부변동내역
             reporterHTMLfilePath = os.path.join(equityFolder, grouped_files[1]) # 보고자에관한상황
@@ -283,6 +291,7 @@ def HTMLtoExcel(equityFolder) :
             #print(reporterHTMLfilePath)
             start_row = convert_html_table_to_excel(company_submitter_list[idx], tradeHTMLlfilePath, reporterHTMLfilePath, shareRatioHTMLfilePath, writer, sheet_name, start_row)
             idx = idx + 1
+            '''
         #end_row = start_row - 4
        
     #print(end_row)
@@ -394,6 +403,7 @@ def parse_custom_date_string(date_str):
         # 파싱 에러 발생 시 None 반환
         return None
     
+    
 def sort_and_write_back1(sheet, start_row, end_row, end_col):
     data = []  # 데이터를 저장할 리스트
 
@@ -460,8 +470,40 @@ def sort_and_write_back2(sheet, start_row, end_row, end_col):
         current_row += 1
         previous_value = value  # 이전 값 업데이트
     return newTransactionEndRow
-    
 
+
+'''
+def sort_and_write_back2(sheet, start_row, end_row, end_col):
+    data = []  # 데이터를 저장할 리스트
+
+    # 데이터 추출
+    for row in range(start_row, end_row + 1):
+        row_data = []  # 현재 행의 데이터를 저장할 리스트
+        for col in range(1, end_col + 1):  # end_col을 포함하도록 수정
+            row_data.append(sheet.range((row, col)).value)
+        data.append(row_data)
+
+    # 데이터 정렬 (예를 들어, A열의 값으로 정렬)
+    try:
+        data.sort(key=lambda x: (x[0], parse_custom_date_string(x[2])))
+    except Exception as e:
+        print('sort_and_write_back2')
+        print(f"Sorting error: {e}")
+        print('sort only by name')
+        data.sort(key=lambda x: x[0])
+
+    # 정렬된 데이터를 시트에 다시 작성
+    newTransactionEndRow = end_row
+    current_row = start_row
+
+    for row_data in data:
+        # 시트에 데이터를 다시 작성
+        for col, cell_value in enumerate(row_data, start=1):
+            sheet.range((current_row, col)).value = cell_value
+        current_row += 1
+
+    return newTransactionEndRow
+'''
 def sort_and_write_back(sheet, start_row, end_row):
     data = []  # 데이터를 저장할 리스트
 
@@ -759,6 +801,7 @@ def getForm2Detail(sheet, tableIndexRow) :
     birthdayCol = None
     dateCol = None
     buySellDetailCol = None
+    previousEquityCountCol = None
     deltaCol = None
     equityCountCol = None
     priceCol = None
@@ -789,6 +832,8 @@ def getForm2Detail(sheet, tableIndexRow) :
             dateCol = col
         elif '취득/처분 방법' in cell_value:
             buySellDetailCol = col
+        elif '변동전' in cell_value:
+            previousEquityCountCol = col 
         elif cell_value == '증감' :
             deltaCol = col
         elif '변동후' in cell_value:
@@ -805,7 +850,7 @@ def getForm2Detail(sheet, tableIndexRow) :
     productCol = remarksCol + 1
 
     #return deltaCol, priceCol, productCol, remarksCol, endRow, sumRows
-    return nameCol, birthdayCol, dateCol, deltaCol, equityCountCol, buySellDetailCol, priceCol, productCol, remarksCol, endSumRow, sumRows
+    return nameCol, birthdayCol, dateCol, previousEquityCountCol, deltaCol, equityCountCol, buySellDetailCol, priceCol, productCol, remarksCol, endSumRow, sumRows
 
 def convertStringToNumber(cell_value) :
     numeric = None
@@ -819,6 +864,24 @@ def convertStringToNumber(cell_value) :
     elif isinstance(cell_value, float) :
         numeric = cell_value
     return numeric
+
+def update_previousShareRatio_in_table(sheet, sumRows, previousEquityCountCol, transactionStartRow, numberofShares) :
+    setMinus = False
+    # numberofShares가 숫자인지 확인합니다.
+    if not isinstance(numberofShares, (int, float)):
+        print("numberofShares must be a number numberofShares : " + numberofShares)
+        setMinus = True
+
+    print('numberofShares:' + str(numberofShares))
+
+    for i in range(len(sumRows)):
+        start_row = sumRows[i - 1] + 1 if i > 0 else transactionStartRow
+        start_cell = sheet.range((start_row, previousEquityCountCol)).get_address(0, 0)  # Get the address of the start cell
+        if setMinus :
+            sheet.range((sumRows[i], previousEquityCountCol)).value = 0
+        else :    
+            sheet.range((sumRows[i], previousEquityCountCol)).formula = f'={start_cell}/{numberofShares}'
+        sheet.range((sumRows[i], previousEquityCountCol)).number_format = '0.00%'
 
 def update_sums_in_table(sheet, sumRows, deltaCol, transactionStartRow):
     for i in range(len(sumRows)):
@@ -889,17 +952,24 @@ def calculateForm1(sheet, tableIndexRow) :
 
 def calculateForm2(sheet, tableIndexRow) : 
     #deltaCol, priceCol, productCol, remarksCol, endRow, sumRows = getForm2Detail(sheet, tableIndexRow) #테이블 형식, 증감열, 비고열
-    nameCol, birthdayCol, dateCol, deltaCol, equityCountCol, buySellDetailCol, priceCol, productCol, remarksCol, endSumRow, sumRows = getForm2Detail(sheet, tableIndexRow)
-    
+    nameCol, birthdayCol, dateCol, previousEquityCountCol, deltaCol, equityCountCol, buySellDetailCol, priceCol, productCol, remarksCol, endSumRow, sumRows = getForm2Detail(sheet, tableIndexRow)
+
+    numberofSharesTableIndexRow = tableIndexRow
+    numberofSharesTableCol = fourthTableColumn
+    numberofShares = getForm2numberofShares(sheet, numberofSharesTableIndexRow, numberofSharesTableCol)
+
     # 1.'처분 단가'열에서 숫자가 아닌 부분 삭제
     for row in range(tableIndexRow + 1, endSumRow) :
         cell_value = sheet.range(row, priceCol).value
         sheet.range(row, priceCol).value = convertStringToNumber(cell_value)
 
-    # 2.sumRows 리스트의 각 멤버들 사이의 '증감' 열 값들의 합을 계산하고, 해당 값을 각 sumRows 멤버의 셀에 저장합니다.
+    # 2. 지분율(전) 구하기
+    update_previousShareRatio_in_table(sheet, sumRows, previousEquityCountCol, tableIndexRow + 1, numberofShares)
+
+    # 3.sumRows 리스트의 각 멤버들 사이의 '증감' 열 값들의 합을 계산하고, 해당 값을 각 sumRows 멤버의 셀에 저장합니다.
     update_sums_in_table(sheet, sumRows, deltaCol, tableIndexRow + 1)
 
-    # 3.'증감X취득/처분 단가' 열 값 채워넣고 합계 구하기
+    # 4.'증감X취득/처분 단가' 열 값 채워넣고 합계 구하기
     update_delta_product_price_col_in_table(sheet, sumRows, deltaCol, priceCol, productCol, tableIndexRow + 1)
     print(sheet.range(tableIndexRow-3, 2).value)
     return sumRows[-1]
@@ -919,9 +989,9 @@ def improvement_calculateAveragePrice(xlsxFilePath) :
         while row <= last_row :
             value = sheet.range(f'A{row}').value  # 각 행의 A열 값 읽기
             if value == '회사명':
-                #print(sheet.range(row, 2).value)
+                print(sheet.range(row, 2).value)
                 #print(sheet.range(row+1, 5).value)
-                #print(sheet.range(row+1, 2).value)
+                print(sheet.range(row+1, 2).value)
                 #print(sheet.range(row, 5).value)
                 form = getReportType(sheet, row+1, 'E')
                 #print('form'+str(form))
@@ -933,12 +1003,18 @@ def improvement_calculateAveragePrice(xlsxFilePath) :
                     row, RowsToAdd = makeForm2(sheet, row+4)
                     last_row += RowsToAdd
             row += 1
-        print('calculateFrom')
+        print('calculateForm')
         # '증감' 합, '증감X취득/처분 단가'합, 평균 단가 구하기
+        # D, E, F, G, H, I, K, L 열의 포맷을 '숫자'로 설정하고, '1000단위 구분기호' 추가
+        set_number_format_with_comma(sheet, ['D', 'E', 'F', 'G', 'H', 'I', 'K', 'L'], last_row)
+
         row = 1
         while row <= last_row :
             value = sheet.range(f'A{row}').value  # 각 행의 A열 값 읽기
             if value == '회사명':
+                print(sheet.range(row, 2).value)
+                #print(sheet.range(row+1, 5).value)
+                print(sheet.range(row+1, 2).value)
                 addDeltaMultiplyPricetColumn(sheet, row + 3)  # '증감X취득/처분 단가' 열 추가 (Form1&2 공통)
                 form = getReportType(sheet, row+1, 'E')
                 # 임원주요주주특정증권등소유상황보고서 Form1 : 매매주체 1인
@@ -949,8 +1025,6 @@ def improvement_calculateAveragePrice(xlsxFilePath) :
                     row = calculateForm2(sheet, row + 3) # 마지막 '합 계'가 포함된 행
             row += 1
         
-        # D, E, F, G, H, I, K, L 열의 포맷을 '숫자'로 설정하고, '1000단위 구분기호' 추가
-        set_number_format_with_comma(sheet, ['D', 'E', 'F', 'G', 'H', 'I', 'K', 'L'], last_row)
 
         book.save()  # 변경 사항 저장
     finally:
@@ -1106,7 +1180,11 @@ def getForm2ShareRatioTable(sheet_d, shareRatioTableIndexRow, shareRatioTableCol
         row += 1
     
     return shareRatioTable
-    
+
+def getForm2numberofShares(sheet_d, numberofSharesTableIndexRow, numberofSharesTableCol) :
+    numberofShares = sheet_d.range((numberofSharesTableIndexRow+2, numberofSharesTableCol-1)).value
+    return numberofShares
+
 def writeSummaryForm2(sheet_d, sheet_s, row_d, row_s) : #row_d : '회사명' row
     #공시 회사
     companyName = sheet_d.range(row_d, 2).value
@@ -1120,11 +1198,13 @@ def writeSummaryForm2(sheet_d, sheet_s, row_d, row_s) : #row_d : '회사명' row
     shareRatioTableIndexRow = row_d + 4
     shareRatioTableCol = thirdTableColumn
     shareRatioTable = getForm2ShareRatioTable(sheet_d, shareRatioTableIndexRow, shareRatioTableCol)
+
     tableIndexRow = row_d + 3
-    nameCol, birthdayCol, dateCol, deltaCol, equityCountCol, buySellDetailCol, priceCol, productCol, remarksCol, endSumRow, sumRows = getForm2Detail(sheet_d, tableIndexRow)
+    nameCol, birthdayCol, dateCol, previousEquityCountCol, deltaCol, equityCountCol, buySellDetailCol, priceCol, productCol, remarksCol, endSumRow, sumRows = getForm2Detail(sheet_d, tableIndexRow)
     
     summaryIndexRow = endSumRow + 2
-    sheet_d.range((summaryIndexRow,1)).value = ['공시 회사', '공시일', '변동일(S)', '변동일(E)', 'S~E (수)', '매매', '공시주체', '이름', '출생년도', '취득방법', '수량(증감)', '변동후', '지분율', '단가']
+    
+    sheet_d.range((summaryIndexRow,1)).value = ['공시 회사', '공시일', '변동일(S)', '변동일(E)', 'S~E (수)', '매매', '공시주체', '이름', '출생년도', '취득방법', '수량(증감)', '변동후', '지분율(전)', '지분율(후)', '단가']
     summaryRow = summaryIndexRow + 1
     transactionStartRow = row_d + 4
     
@@ -1134,6 +1214,7 @@ def writeSummaryForm2(sheet_d, sheet_s, row_d, row_s) : #row_d : '회사명' row
         sum_row = sumRows[i]
         startDate = parse_custom_date_string(sheet_d.range((start_row, dateCol)).value)
         endDate = parse_custom_date_string(sheet_d.range((end_row, dateCol)).value)
+        previousShareRatio = sheet_d.range((sum_row, previousEquityCountCol)).value
         delta = sheet_d.range((sum_row, deltaCol)).value
         averagePrice = sheet_d.range((sum_row, remarksCol)).value #remarksCol = averagePriceCol
         transactionCount = end_row - start_row + 1
@@ -1156,7 +1237,11 @@ def writeSummaryForm2(sheet_d, sheet_s, row_d, row_s) : #row_d : '회사명' row
         except ValueError:
             print("shareRatio " + shareRatio + "는 실수로 변환할 수 없습니다.")
 
-        sheet_d.range((summaryRow,1)).value = [companyName, todayDate, startDate, endDate, transactionCount, buySell, job, name, birthday, buySellDetail, delta, equityCount, shareRatio, averagePrice]
+        print('previousShareRatio:' + str(previousShareRatio))
+        if previousShareRatio is None :
+            previousShareRatio = 0
+
+        sheet_d.range((summaryRow,1)).value = [companyName, todayDate, startDate, endDate, transactionCount, buySell, job, name, birthday, buySellDetail, delta, equityCount, previousShareRatio, shareRatio, averagePrice]
 
          # endDate 셀에 날짜 형식 설정
         sheet_d.range((summaryRow,4)).number_format = 'yyyy-mm-dd'
@@ -1165,10 +1250,11 @@ def writeSummaryForm2(sheet_d, sheet_s, row_d, row_s) : #row_d : '회사명' row
         sheet_d.range((summaryRow,9)).number_format = '@'
 
         # shareRatio 셀에 백분율 형식 설정, 소수 자릿수 2로 설정
-        sheet_d.range((summaryRow,13)).number_format = '0.00%'    
-    
+        sheet_d.range((summaryRow,13)).number_format = '0.00%'
+        sheet_d.range((summaryRow,14)).number_format = '0.00%'
+
         # averagePrice 셀에 소수점 두 자리까지의 포맷 설정
-        sheet_d.range((summaryRow,14)).number_format = '0.00'
+        sheet_d.range((summaryRow,15)).number_format = '0.00'
 
         summaryRow += 1
     
@@ -1195,6 +1281,11 @@ def writeSummaryForm1(sheet_d, sheet_s, row_d, row_s) : #row_d : '회사명' row
     shareRatioIndexRow = row_d + 3
     shareRatioIndexCol = thirdTableColumn
     shareRatio = Form1ShareRatioSummary(sheet_d, shareRatioIndexRow, shareRatioIndexCol)
+    previousShareRatio = Form1ShareRatioSummary(sheet_d, shareRatioIndexRow-1, shareRatioIndexCol)
+    
+    # previousShareRatio이 None이거나 '-'인 경우 0으로 설정
+    if previousShareRatio is None or previousShareRatio == '-':
+        previousShareRatio = 0
 
     #sheet_d.range(f"{tableTransactionEndRow+1}:{tableTransactionEndRow+1 + 2}").api.Insert(Shift=1)
 
@@ -1207,12 +1298,16 @@ def writeSummaryForm1(sheet_d, sheet_s, row_d, row_s) : #row_d : '회사명' row
         shareRatio = shareRatio / 100 
     except ValueError:
         print("shareRatio " + shareRatio + "는 실수로 변환할 수 없습니다.")
-    '''
-    if isinstance(shareRatio, (int, float)):
-        shareRatio = shareRatio / 100
-    '''
-    sheet_d.range((tableTransactionEndRow+3,1)).value = ['공시 회사', '공시일', '변동일(S)', '변동일(E)', 'S~E (수)', '매매', '공시주체', '이름', '출생년도', '취득방법', '수량(증감)', '변동후', '지분율', '단가']
-    sheet_d.range((tableTransactionEndRow+4,1)).value = [companyName, todayDate, startDate, endDate, transactionCount, buySell, submitterDetails, submitter, birthday, buySellDetail, delta, equityCount, shareRatio, averagePrice]
+  
+    # previousShareRatio 숫자 타입인지 확인하고, 숫자라면 100으로 나누기
+    try :
+        previousShareRatio = float(previousShareRatio)
+        previousShareRatio = previousShareRatio / 100 
+    except ValueError:
+        print("previousShareRatio " + shareRatio + "는 실수로 변환할 수 없습니다.")
+    
+    sheet_d.range((tableTransactionEndRow+3,1)).value = ['공시 회사', '공시일', '변동일(S)', '변동일(E)', 'S~E (수)', '매매', '공시주체', '이름', '출생년도', '취득방법', '수량(증감)', '변동후', '지분율(전)', '지분율(후)', '단가']
+    sheet_d.range((tableTransactionEndRow+4,1)).value = [companyName, todayDate, startDate, endDate, transactionCount, buySell, submitterDetails, submitter, birthday, buySellDetail, delta, equityCount, previousShareRatio, shareRatio, averagePrice]
     
     # endDate 셀에 날짜 형식 설정
     sheet_d.range((tableTransactionEndRow+4,4)).number_format = 'yyyy-mm-dd'
@@ -1222,9 +1317,10 @@ def writeSummaryForm1(sheet_d, sheet_s, row_d, row_s) : #row_d : '회사명' row
 
     # shareRatio 셀에 백분율 형식 설정, 소수 자릿수 2로 설정
     sheet_d.range((tableTransactionEndRow+4,13)).number_format = '0.00%'
+    sheet_d.range((tableTransactionEndRow+4,14)).number_format = '0.00%'
     
     # averagePrice 셀 소수점 2자리 형식 설정.
-    sheet_d.range((tableTransactionEndRow+4,14)).number_format = '0.00'
+    sheet_d.range((tableTransactionEndRow+4,15)).number_format = '0.00'
 
     return tableTransactionEndRow + 5, row_s
 
@@ -1293,7 +1389,7 @@ def writeSummaryFile(equityFolder, detailFilePath) :
         app.quit()  # Excel 애플리케이션 종료
 
 def main () :
-    equityFolder = '2024.02.29_지분공시'  # Update the folder path
+    equityFolder = '2024.03.08_지분공시'  # Update the folder path
     xlsxFilePath = HTMLtoExcel(equityFolder)
     
     #calculateAveragePrice(xlsxFilePath)
