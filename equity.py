@@ -869,7 +869,7 @@ def update_previousShareRatio_in_table(sheet, sumRows, previousEquityCountCol, t
     setMinus = False
     # numberofShares가 숫자인지 확인합니다.
     if not isinstance(numberofShares, (int, float)):
-        print("numberofShares must be a number numberofShares : " + numberofShares)
+        print("numberofShares must be a number numberofShares : " + str(numberofShares))
         setMinus = True
 
     print('numberofShares:' + str(numberofShares))
@@ -1389,7 +1389,7 @@ def writeSummaryFile(equityFolder, detailFilePath) :
         app.quit()  # Excel 애플리케이션 종료
 
 def main () :
-    equityFolder = '2024.03.08_지분공시'  # Update the folder path
+    equityFolder = '2024.05.24_지분공시'  # Update the folder path
     xlsxFilePath = HTMLtoExcel(equityFolder)
     
     #calculateAveragePrice(xlsxFilePath)

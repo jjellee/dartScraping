@@ -32,7 +32,6 @@ export async function saveHTMLfile(equityList: any[], 지분공시폴더 : strin
 
     const row = equityList[idx];
     //console.log(row.companyName + ', ' + row.reportType + ', ' + row.회사지분공시홈페이지 + ', ' + row.holder);
-
     const 공시항목Content = '회사명 : ' + row.companyName + '\n'
     + '제출인 : ' + row.holder + '\n'
     + '보고서명 : ' + row.reportType + '\n'
