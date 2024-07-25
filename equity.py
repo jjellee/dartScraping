@@ -13,6 +13,9 @@ thirdTableColumn = 25
 fourthTableColumn = 41
 num_push_row_down = 0
 
+# 스킵할 숫자 목록을 global 변수로 선언
+SKIP_NUMBERS = []
+
 # Excel 열들에 대한 포맷을 설정하는 함수
 def set_number_format_with_comma(sheet, columns, last_row):
     for column in columns:
@@ -213,12 +216,6 @@ def convert_html_table_to_excel(company_submitter, tradeHTMLlfilePath, reporterH
 
     return start_row + max(len(tradeTables[0]), len(reporterTables[0]), len(shareRatioTables[0])) + 8  # Return the new start row for the next table
 
-def extract_number_from_filename(filename):
-    match = re.search(r'\d{1,3}', filename)
-    if match:
-        return int(match.group())
-    else:
-        return 9999  # 파일명에 숫자가 없는 경우 큰 수를 반환
 
 def sortedTextFiles(folderPath) :
     # 폴더 내의 모든 파일을 리스트로 가져옵니다.
@@ -249,6 +246,10 @@ def HTMLtoExcel(equityFolder) :
     
     company_submitter_list = []
     for file in STFs:
+        file_number = extract_number_from_filename(file)
+        # 특정 숫자의 파일은 스킵합니다.
+        if file_number in SKIP_NUMBERS:  # 스킵할 숫자 목록을 여기에 추가하세요. 예: [2, 4, 6]
+            continue
         stringPairs = extract_strings_from_file(os.path.join(equityFolder,file))
         company = stringPairs[0][1]
         submitter = stringPairs[1][1]
@@ -267,6 +268,10 @@ def HTMLtoExcel(equityFolder) :
         start_row = 1
         for key, group in groupby(SHFs, key=lambda x: extract_details_from_filename(x)[0]):
             grouped_files = list(group)
+            file_number = extract_number_from_filename(grouped_files[0])
+            # 특정 숫자의 파일은 스킵합니다.
+            if file_number in SKIP_NUMBERS:  # 스킵할 숫자 목록을 여기에 추가하세요. 예: [2, 4, 6]
+                continue
             print(f"Processing files: {grouped_files}")
             tradeHTMLlfilePath = os.path.join(equityFolder, grouped_files[0]) # 세부변동내역
             reporterHTMLfilePath = os.path.join(equityFolder, grouped_files[1]) # 보고자에관한상황
@@ -1153,15 +1158,17 @@ def getForm2ShareRatioTable(sheet_d, shareRatioTableIndexRow, shareRatioTableCol
     nameCol = None
     shareRatioCol = None
     col = shareRatioTableCol
+    print('BEFORE while col < fourthTableColumn')
     while col < fourthTableColumn :
         cell_value = sheet_d.range((shareRatioTableIndexRow, col)).value
-        #print(cell_value)
+        print(cell_value)
         if '명칭' in cell_value:
             nameCol = col
         elif '비율' in cell_value:
             shareRatioCol = col
             break
         col += 1
+    print('AFTER while col < fourthTableColumn')
     #print('shareRatioCol:' + str(shareRatioCol))
     #print('nameCol:' + str(nameCol))
     shareRatioTable = {}
@@ -1389,7 +1396,9 @@ def writeSummaryFile(equityFolder, detailFilePath) :
         app.quit()  # Excel 애플리케이션 종료
 
 def main () :
-    equityFolder = '2024.05.24_지분공시'  # Update the folder path
+    global SKIP_NUMBERS
+    SKIP_NUMBERS = [3]
+    equityFolder = '2024.07.25_지분공시'  # Update the folder path
     xlsxFilePath = HTMLtoExcel(equityFolder)
     
     #calculateAveragePrice(xlsxFilePath)
