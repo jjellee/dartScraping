@@ -145,7 +145,7 @@ async function tryClickByText(page: Page, text1: string, text2: string): Promise
 
 
 async function 임원주요주주특정증권등소유상황보고서 ( 회사지분공시홈페이지 : string ) : Promise<[string, string, string]> {
-  const browser: Browser = await chromium.launch({ headless: false });
+  const browser: Browser = await chromium.launch({headless: false});
   const 지분공시페이지 = await browser.newPage();
 
   await 지분공시페이지.goto(회사지분공시홈페이지);

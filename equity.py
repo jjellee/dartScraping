@@ -268,10 +268,7 @@ def HTMLtoExcel(equityFolder) :
         start_row = 1
         for key, group in groupby(SHFs, key=lambda x: extract_details_from_filename(x)[0]):
             grouped_files = list(group)
-            file_number = extract_number_from_filename(grouped_files[0])
-            # 특정 숫자의 파일은 스킵합니다.
-            if file_number in SKIP_NUMBERS:  # 스킵할 숫자 목록을 여기에 추가하세요. 예: [2, 4, 6]
-                continue
+
             print(f"Processing files: {grouped_files}")
             tradeHTMLlfilePath = os.path.join(equityFolder, grouped_files[0]) # 세부변동내역
             reporterHTMLfilePath = os.path.join(equityFolder, grouped_files[1]) # 보고자에관한상황
@@ -380,7 +377,7 @@ def addDeltaMultiplyPricetColumn(sheet, row) :
     col = 1  # Start from the first colum
     while True :
         cell_value = sheet.range((row, col)).value
-        if cell_value == '비 고' :
+        if '비 고' in cell_value:
             target_cell = sheet.range(row, col + 1)
             target_cell.value = '증감X취득/처분 단가'
 
@@ -793,7 +790,8 @@ def getForm1Detail(sheet, tableIndexRow) :
             deltaCol = col
         elif '취득/처분 단가' in cell_value :
             priceCol = col
-        elif cell_value == '비 고' : # 마지막 열
+        elif '비 고' in cell_value: # 마지막 열
+        #elif cell_value == '비 고' : # 마지막 열
             remarksCol = col
             break
         col += 1
@@ -847,7 +845,8 @@ def getForm2Detail(sheet, tableIndexRow) :
         #elif '취득/처분 단가' in cell_value and priceCol is None:
             priceCol = col
             #print('getForm2Detail priceCol:' + str(priceCol))
-        elif cell_value == '비 고' : # 마지막 열
+        elif '비 고' in cell_value: # 마지막 열
+        #elif cell_value == '비 고' : # 마지막 열
             remarksCol = col
             break
         col += 1
@@ -1158,17 +1157,17 @@ def getForm2ShareRatioTable(sheet_d, shareRatioTableIndexRow, shareRatioTableCol
     nameCol = None
     shareRatioCol = None
     col = shareRatioTableCol
-    print('BEFORE while col < fourthTableColumn')
+    #print('BEFORE while col < fourthTableColumn')
     while col < fourthTableColumn :
         cell_value = sheet_d.range((shareRatioTableIndexRow, col)).value
-        print(cell_value)
+        #print(cell_value)
         if '명칭' in cell_value:
             nameCol = col
         elif '비율' in cell_value:
             shareRatioCol = col
             break
         col += 1
-    print('AFTER while col < fourthTableColumn')
+    #print('AFTER while col < fourthTableColumn')
     #print('shareRatioCol:' + str(shareRatioCol))
     #print('nameCol:' + str(nameCol))
     shareRatioTable = {}
@@ -1397,8 +1396,8 @@ def writeSummaryFile(equityFolder, detailFilePath) :
 
 def main () :
     global SKIP_NUMBERS
-    SKIP_NUMBERS = [3]
-    equityFolder = '2024.07.25_지분공시'  # Update the folder path
+    SKIP_NUMBERS = [34,95]
+    equityFolder = '2024.11.01_지분공시'  # Update the folder path
     xlsxFilePath = HTMLtoExcel(equityFolder)
     
     #calculateAveragePrice(xlsxFilePath)
